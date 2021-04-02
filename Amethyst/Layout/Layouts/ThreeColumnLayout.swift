@@ -49,7 +49,7 @@ struct TriplePaneArrangement {
         - screenSize: total size of the screen
         - mainPaneRatio: ratio of the screen taken by main pane
      */
-    init(mainPane: Column, numWindows: UInt, numMainPane: UInt, screenSize: CGSize, mainPaneRatio: CGFloat) {
+    init(mainPane: Column, mainPaneGrowth: Bool, numWindows: UInt, numMainPane: UInt, screenSize: CGSize, mainPaneRatio: CGFloat) {
         // forward and reverse mapping of columns to their designations
         self.panePosition = {
             switch mainPane {
@@ -79,7 +79,8 @@ struct TriplePaneArrangement {
 
         // calculate widths
         let screenWidth = screenSize.width
-        let mainWindowWidth = secondaryPaneCount == 0 ? screenWidth : round(screenWidth * mainPaneRatio)
+        let shouldGrow = mainPaneGrowth && secondaryPaneCount == 0
+        let mainWindowWidth = shouldGrow ? screenWidth : round(screenWidth * mainPaneRatio)
         let nonMainWindowWidth = round((screenWidth - mainWindowWidth) / 2)
         self.paneWindowWidth = [
             .main: mainWindowWidth,
@@ -148,6 +149,10 @@ struct TriplePaneArrangement {
 class ThreeColumnLayout<Window: WindowType>: Layout<Window> {
     class var mainColumn: Column { fatalError("Must be implemented by subclass") }
 
+    // mainColumnGrowth indicates whether the main column should expand to
+    // fill the entire screen if it is the only pane.
+    class var mainColumnGrowth: Bool { return true; }
+
     enum CodingKeys: String, CodingKey {
         case mainPaneCount
         case mainPaneRatio
@@ -183,6 +188,7 @@ class ThreeColumnLayout<Window: WindowType>: Layout<Window> {
         let screenFrame = screen.adjustedFrame()
         let paneArrangement = TriplePaneArrangement(
             mainPane: type(of: self).mainColumn,
+            mainPaneGrowth: type(of: self).mainColumnGrowth,
             numWindows: UInt(windows.count),
             numMainPane: UInt(mainPaneCount),
             screenSize: screenFrame.size,
@@ -252,7 +258,7 @@ extension ThreeColumnLayout {
     }
 }
 
-// implement the three variants
+// implement the four variants
 
 class ThreeColumnLeftLayout<Window: WindowType>: ThreeColumnLayout<Window>, PanedLayout {
     override static var layoutName: String { return "3Column Left" }
@@ -271,4 +277,11 @@ class ThreeColumnRightLayout<Window: WindowType>: ThreeColumnLayout<Window>, Pan
     override static var layoutName: String { return "3Column Right" }
     override static var layoutKey: String { return "3column-right" }
     override static var mainColumn: Column { return .right }
+}
+
+class ThreeColumnMiddleNarrowLayout<Window: WindowType>: ThreeColumnLayout<Window>, PanedLayout {
+    override static var layoutName: String { return "3Column Narrow" }
+    override static var layoutKey: String { return "3column-narrow" }
+    override static var mainColumn: Column { return .middle }
+    override static var mainColumnGrowth: Bool { return false; }
 }
